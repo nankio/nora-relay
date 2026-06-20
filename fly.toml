@@ -1,0 +1,50 @@
+# fly.toml — Nora relay.
+#
+# Single always-on instance with SQLite on a persistent volume. The relay holds
+# long-lived agent WebSockets, so the machine must never auto-stop or scale to
+# many instances (SQLite is single-writer). Fly terminates TLS and provides a
+# stable https/wss endpoint at https://<app>.fly.dev — point the agent's
+# RelayURL setting at wss://<app>.fly.dev/agent.
+
+app = "nora-relay"
+primary_region = "gru" # São Paulo — change to the region nearest your users
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  LISTEN = ":8080"
+  SQLITE_PATH = "/data/nora.db"
+
+# Persistent volume for the SQLite database. Create it once before the first
+# deploy (same name + region):
+#   fly volumes create nora_data --size 1 --region gru
+[[mounts]]
+  source = "nora_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true          # agent requires wss:// (TLS) for remote relays
+  auto_stop_machines = false  # keep agent WebSockets alive — never scale to zero
+  auto_start_machines = false
+  min_machines_running = 1
+
+  # WebSockets are long-lived; count connections, not requests, and keep the
+  # ceiling well above expected concurrent agents so Fly never sheds load.
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 1000
+    soft_limit = 800
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/healthz"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+
+# Small, cheap box with headroom for SQLite + many idle WebSockets (~$3/mo).
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

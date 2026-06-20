@@ -1,0 +1,15 @@
+# The relay image only needs the Go module + server/shared packages. Keep the
+# desktop app's frontend, build output, and local files out of the build context.
+.git
+.github
+*.md
+.env*
+.DS_Store
+
+# Desktop (Wails) app — not part of the relay binary.
+cmd/agent/frontend/node_modules
+cmd/agent/build
+
+# Stray local build artifacts.
+/relay
+/migrate

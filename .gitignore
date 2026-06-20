@@ -1,0 +1,12 @@
+# Local env + secrets
+.env
+.env.local
+
+# SQLite databases
+*.db
+*.db-wal
+*.db-shm
+
+# Build artifacts
+/relay
+/migrate
