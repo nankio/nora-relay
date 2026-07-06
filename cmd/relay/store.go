@@ -91,7 +91,21 @@ func (s *memStore) GetPolicy(_ context.Context, account string) (int, []byte, bo
 func (s *memStore) RegisterAPIKey(_ context.Context, keyID, ownerAccount, hash string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.keys[keyID] = APIKey{ID: keyID, OwnerAccount: ownerAccount}
+	// Re-registering an existing key id rotates its secret: drop any previous
+	// hash(es) pointing at this key so the old plaintext stops resolving. This
+	// mirrors the SQLite store, whose UNIQUE key_hash column is replaced by the
+	// ON CONFLICT(id) DO UPDATE upsert.
+	for h, kid := range s.byHash {
+		if kid == keyID {
+			delete(s.byHash, h)
+		}
+	}
+	// Preserve the key's existing CORS origins across a rotation (a brand-new
+	// key starts with none).
+	k := s.keys[keyID]
+	k.ID = keyID
+	k.OwnerAccount = ownerAccount
+	s.keys[keyID] = k
 	s.byHash[hash] = keyID
 	return nil
 }
