@@ -29,6 +29,13 @@ type Store interface {
 	RevokeAPIKey(ctx context.Context, ownerAccount, id string) error
 	ResolveAPIKey(ctx context.Context, plaintext string) (APIKey, error)
 
+	// RebindAPIKey points an existing key at a different account of the same
+	// user, leaving its secret, origins and id untouched. The account a key is
+	// bound to is only ever routing information — which device to forward to —
+	// so moving a connection between the user's own accounts must not force the
+	// caller to re-authenticate with a new token.
+	RebindAPIKey(ctx context.Context, keyID, oldAccount, newAccount string) error
+
 	// UpdateKeyOrigins sets the CORS allowed-origins list for a single API key.
 	// Only the owning account may update its own keys.
 	UpdateKeyOrigins(ctx context.Context, keyID, ownerAccount string, origins []string) error
@@ -107,6 +114,18 @@ func (s *memStore) RegisterAPIKey(_ context.Context, keyID, ownerAccount, hash s
 	k.OwnerAccount = ownerAccount
 	s.keys[keyID] = k
 	s.byHash[hash] = keyID
+	return nil
+}
+
+func (s *memStore) RebindAPIKey(_ context.Context, keyID, oldAccount, newAccount string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	k, ok := s.keys[keyID]
+	if !ok || k.OwnerAccount != oldAccount {
+		return ErrNotFound
+	}
+	k.OwnerAccount = newAccount
+	s.keys[keyID] = k
 	return nil
 }
 

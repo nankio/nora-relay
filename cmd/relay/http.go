@@ -272,6 +272,39 @@ func (s *server) handleControl(a *agentConn, c *protocol.Control) {
 		reply.KeyID = c.KeyID
 		reply.Account = c.Account
 
+	case "rebind_key":
+		// Move a connection to another of the user's accounts. The key's secret,
+		// id and origins survive, so a caller holding the token keeps working:
+		// the bound account is routing information, not a credential.
+		//
+		// The old owner is not supplied — it is discovered among the accounts
+		// this device has proven, and that search *is* the authorisation check.
+		// A device may only rebind a key that already belongs to one of its own
+		// accounts, and only onto another account it controls.
+		if !contains(a.accounts, c.Account) {
+			reply.Error = "you do not control that account on this device"
+			break
+		}
+		if c.KeyID == "" {
+			reply.Error = "rebind_key requires key_id"
+			break
+		}
+		rebound := false
+		for _, acc := range a.accounts {
+			// Rebinding onto the account it already has is a no-op that
+			// succeeds: the device re-asserts its policy on every save.
+			if e := s.store.RebindAPIKey(ctx, c.KeyID, acc, c.Account); e == nil {
+				rebound = true
+				break
+			}
+		}
+		if !rebound {
+			reply.Error = "key not found"
+			break
+		}
+		reply.KeyID = c.KeyID
+		reply.Account = c.Account
+
 	case "revoke_key":
 		var err error = ErrNotFound
 		for _, acc := range a.accounts {

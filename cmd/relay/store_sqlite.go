@@ -72,6 +72,20 @@ func (s *sqliteStore) RegisterAPIKey(ctx context.Context, keyID, ownerAccount, h
 	return err
 }
 
+func (s *sqliteStore) RebindAPIKey(ctx context.Context, keyID, oldAccount, newAccount string) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE api_keys SET owner_account=? WHERE id=? AND owner_account=?`,
+		newAccount, keyID, oldAccount)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (s *sqliteStore) RevokeAPIKey(ctx context.Context, ownerAccount, id string) error {
 	res, err := s.db.ExecContext(ctx, `DELETE FROM api_keys WHERE id=? AND owner_account=?`, id, ownerAccount)
 	if err != nil {

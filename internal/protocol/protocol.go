@@ -96,7 +96,7 @@ type Welcome struct {
 // the device; the relay only learns a key's hash and the account it acts on, so
 // the plaintext never reaches the relay.
 type Control struct {
-	Op      string `json:"op"`      // register_key | revoke_key | update_origins | put_policy | get_policy | result
+	Op      string `json:"op"`      // register_key | rebind_key | revoke_key | update_origins | put_policy | get_policy | result
 	CorrID  string `json:"corr_id"` // correlates a response to its request
 	Account string `json:"account,omitempty"`
 	KeyID   string `json:"key_id,omitempty"`
